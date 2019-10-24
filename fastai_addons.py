@@ -8,9 +8,18 @@ import scipy
 import itertools
 
 
+def get_val_stats(learner):
+    rec = learner.recorder
+    ret = {'loss':float(rec.val_losses[-1])}
+    for i, name in enumerate(rec.metrics_names):
+        ret[name] = float(rec.metrics[-1][i])
+    return ret
+
+
 def my_smooth(sig, w=2):
     sig_p = np.pad(sig, (w,w), 'edge')
     return np.array([np.mean(sig_p[i:i+2*w+1]) for i in range(len(sig_p)-2*w)])
+
 
 def plot2(self, skip_start:int=10, skip_end:int=5, suggestion:bool=True, return_fig:bool=None, win=3,
          **kwargs)->Optional[plt.Figure]:
@@ -59,6 +68,7 @@ def plot2(self, skip_start:int=10, skip_end:int=5, suggestion:bool=True, return_
     except: pass
         
 Recorder.plot2 = plot2
+
 
 def threshold_confusion_matrix(interp, thresh=0):
     preds = to_np(interp.preds)
