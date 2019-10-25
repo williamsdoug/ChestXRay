@@ -89,7 +89,7 @@ def show_categories(y):
     print(f'  {"Total":10}:  {tot:4d}')
 
 
-def get_db_np(path, tfms=None, size=224, bs=64, scale=1.0):
+def get_db_np(path, tfms=None, size=224, bs=64, scale=1.0, workers=7):
     if tfms is None: tfms = default_transforms()
         
     sample_pneumonia = partial(sample_files, probs={'NORMAL':1.0, 'PNEUMONIA':0.346}, default_prob=0)
@@ -100,11 +100,11 @@ def get_db_np(path, tfms=None, size=224, bs=64, scale=1.0):
     il_valid = get_labellist(path/'test', sample_func=sample_pneumonia_t, p_sample=0.216*scale)
 
     ils = ItemLists(path, train=il_train, valid=il_valid).label_from_folder()
-    db = ImageDataBunch.create_from_ll(ils, size=size, ds_tfms=tfms, bs=bs)
+    db = ImageDataBunch.create_from_ll(ils, size=size, ds_tfms=tfms, bs=bs, num_workers=workers)
     return db
 
 
-def get_db_vb(path, tfms=None, size=224, bs=64, scale=1.0, label_func=get_labels):
+def get_db_vb(path, tfms=None, size=224, bs=64, scale=1.0, label_func=get_labels, workers=7):
     if tfms is None: tfms = default_transforms()
     scale *= 1.5   # adjust size for missing normal
         
@@ -115,11 +115,11 @@ def get_db_vb(path, tfms=None, size=224, bs=64, scale=1.0, label_func=get_labels
     il_train = get_labellist(path/'train', sample_func=sample_vb, p_sample=0.0249*scale)
     il_valid = get_labellist(path/'test', sample_func=sample_vb_t, p_sample=0.2273*scale)
     ils = ItemLists(path, train=il_train, valid=il_valid).label_from_func(label_func)
-    db = ImageDataBunch.create_from_ll(ils, size=size, ds_tfms=tfms, bs=bs)
+    db = ImageDataBunch.create_from_ll(ils, size=size, ds_tfms=tfms, bs=bs, num_workers=workers)
     return db
 
 
-def get_db_nvb(path, tfms=None, size=224, bs=64, scale=1.0, label_func=get_labels):
+def get_db_nvb(path, tfms=None, size=224, bs=64, scale=1.0, label_func=get_labels, workers=7):
     if tfms is None: tfms = default_transforms()
         
     sample_vb = partial(sample_files, probs={'bacteria':0.5316, 'virus':1.0}, default_prob=1.0)
@@ -129,5 +129,5 @@ def get_db_nvb(path, tfms=None, size=224, bs=64, scale=1.0, label_func=get_label
     il_train = get_labellist(path/'train', sample_func=sample_vb, p_sample=0.0249*scale)
     il_valid = get_labellist(path/'test', sample_func=sample_vb_t, p_sample=0.2273*scale)
     ils = ItemLists(path, train=il_train, valid=il_valid).label_from_func(label_func)
-    db = ImageDataBunch.create_from_ll(ils, size=size, ds_tfms=tfms, bs=bs)
+    db = ImageDataBunch.create_from_ll(ils, size=size, ds_tfms=tfms, bs=bs, num_workers=workers)
     return db
