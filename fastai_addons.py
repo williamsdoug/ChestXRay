@@ -2,11 +2,45 @@ import numpy as np
 from fastai.basic_train import Recorder
 from fastai.core import ifnone, defaults, Any
 from fastai.torch_core import to_np
+from fastai.vision import *
 import matplotlib.pyplot as plt
 from typing import Optional
 import scipy
 import itertools
 
+
+def silent_validate(model:nn.Module, dl:DataLoader, loss_func:OptLossFunc=None, cb_handler:Optional[CallbackHandler]=None,
+             average=True, n_batch:Optional[int]=None)->Iterator[Tuple[Union[Tensor,int],...]]:
+    """Calculate `loss_func` of `model` on `dl` in evaluation mode.  
+       Note:  This version does not overwrite results from training"""
+    model.eval()
+    with torch.no_grad():
+        val_losses,nums = [],[]
+        if cb_handler: cb_handler.set_dl(dl)
+        for xb,yb in dl:
+            if cb_handler: xb, yb = cb_handler.on_batch_begin(xb, yb, train=False)
+            val_loss = loss_batch(model, xb, yb, loss_func, cb_handler=cb_handler)
+            val_losses.append(val_loss)
+            if not is_listy(yb): yb = [yb]
+            nums.append(first_el(yb).shape[0])
+            if cb_handler and cb_handler.on_batch_end(val_losses[-1]): break
+            if n_batch and (len(nums)>=n_batch): break
+        nums = np.array(nums, dtype=np.float32)
+        if average: return (to_np(torch.stack(val_losses)) * nums).sum() / nums.sum()
+        else:       return val_losses
+
+
+def _svalidate(self, dl=None, callbacks=None, metrics=None):
+        "Validate on `dl` with potential `callbacks` and `metrics`."
+        dl = ifnone(dl, self.data.valid_dl)
+        metrics = ifnone(metrics, self.metrics)
+        cb_handler = CallbackHandler(self.callbacks + ifnone(callbacks, []), metrics)
+        cb_handler.on_train_begin(1, None, metrics); cb_handler.on_epoch_begin()
+        val_metrics = silent_validate(self.model, dl, self.loss_func, cb_handler)
+        cb_handler.on_epoch_end(val_metrics)
+        return cb_handler.state_dict['last_metrics']
+    
+Learner.svalidate = _svalidate
 
 def get_val_stats(learner):
     rec = learner.recorder
@@ -14,6 +48,16 @@ def get_val_stats(learner):
     for i, name in enumerate(rec.metrics_names):
         ret[name] = float(rec.metrics[-1][i])
     return ret
+
+
+def get_best_stats(learner):
+    rec = learner.recorder
+    keys = ['loss'] + rec.metrics_names
+    results = []
+    for i, loss in enumerate(rec.val_losses):
+        entry = [loss] + [float(v) for v in rec.metrics[i]]
+        results.append(dict(zip(keys, entry)))
+    return sorted(results, key=lambda x:x['error_rate'])[0]
 
 
 def my_smooth(sig, w=2):
