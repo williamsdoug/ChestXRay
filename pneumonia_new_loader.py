@@ -116,7 +116,7 @@ def get_sampled_data(path, n_samples=100, balance_valid=True, **kwargs):
     return new_train, new_test, new_valid
 
 
-def get_xray_databunch(path, scale=1, size=None, tfms=None, cache=None, **kwargs):
+def get_xray_databunch(path, scale=1, size=None, tfms=None, cache=None, bs=64, include_test=False, **kwargs):
     if tfms is None:
         tfms = default_transforms()
         
@@ -137,9 +137,75 @@ def get_xray_databunch(path, scale=1, size=None, tfms=None, cache=None, **kwargs
     ll_tr = list_to_ll(path, new_train)
     ll_val = list_to_ll(path, new_valid)
     ll_tst = list_to_ll(path, new_test)
+    
+    ils = ItemLists(path=path, train=ll_tr, valid=ll_val)
+    db = ils.transform(tfms, size=size).databunch(num_workers=7, bs=bs)
 
-    ils = ItemLists(path=path, train=ll_tr, valid=ll_val); ils
+    if include_test:
+        ils = ItemLists(path=path, train=ll_tr, valid=ll_tst)
+        db_tst = ils.transform(tfms, size=size).databunch(num_workers=7, bs=bs)
+        return db, db_tst
+    else: 
+        return db
 
-    db = ils.transform(tfms, size=size).databunch()
+    
+def get_db(path, kind, n_samples=100, **kwargs):
+    assert kind in ('np', 'nvb', 'vb')
+    cname = f'{kind}_{n_samples}'
+    if kind == 'np':
+        db = get_xray_databunch(path, label_func=None, n_samples=n_samples, cache=cname, **kwargs)
+    elif kind == 'nvb':
+        db = get_xray_databunch(path, label_func=get_labels, n_samples=n_samples, cache=cname, **kwargs)
+    elif kind == 'vb':
+        db = get_xray_databunch(path, label_func=get_labels, filter_func=filter_files, 
+                                n_samples=n_samples, cache=cname, **kwargs)
     return db
+
+
+
+
+# def get_xray_databunch(path, scale=1, size=None, tfms=None, cache=None, bs=None, **kwargs):
+#     if tfms is None:
+#         tfms = default_transforms()
+        
+#     p_name = Path(f'{cache}.pkl')
+#     if cache is not None and p_name.exists():
+#         with open(p_name, 'rb') as f:
+#             new_train, new_test, new_valid = pickle.load(f)
+#     else:
+#         new_train, new_test, new_valid = get_sampled_data(path, **kwargs)
+#         if cache is not None:
+#             with open(p_name, 'wb') as f:
+#                 pickle.dump([new_train, new_test, new_valid], f)
+
+#     if scale > 1:     # Duplicate entries, if requested 
+#         new_train = new_train * scale
+#         random.shuffle(new_train)
+
+#     ll_tr = list_to_ll(path, new_train)
+#     ll_val = list_to_ll(path, new_valid)
+#     ll_tst = list_to_ll(path, new_test)
+
+#     ils = ItemLists(path=path, train=ll_tr, valid=ll_val); ils
+#     if bs is None:
+#         db = ils.transform(tfms, size=size).databunch(num_workers=7)
+#     else:
+#         db = ils.transform(tfms, size=size).databunch(num_workers=7, bs=bs)
+#     return db
+
+
+# def get_db(path, kind, n_samples=100, scale=1, size=448, tfms=None, bs=None):
+#     assert kind in ('np', 'nvb', 'vb')
+#     cname = f'{kind}_{n_samples}'
+#     if kind == 'np':
+#         db = get_xray_databunch(path, label_func=None, 
+#                                 scale=scale, size=size, n_samples=n_samples, tfms=tfms, cache=cname, bs=bs)
+#     elif kind == 'nvb':
+#         db = get_xray_databunch(path, label_func=get_labels, 
+#                                 scale=scale, size=size, n_samples=n_samples, tfms=tfms, cache=cname, bs=bs)
+#     elif kind == 'vb':
+#         db = get_xray_databunch(path, label_func=get_labels, filter_func=filter_files, 
+#                                 scale=scale, size=size, n_samples=n_samples, tfms=tfms, cache=cname, bs=bs)
+#     return db
+    
 
