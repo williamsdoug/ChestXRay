@@ -8,6 +8,7 @@ from scipy.stats import gmean, hmean
 
 
 from fastai_addons import model_cutter
+from fastai_addons import interpretation_summary, plot_confusion_matrix
 
 # from fastai_addons import interpretation_summary, plot_confusion_matrix, \
 #                           get_accuracy, analyze_confidence, accuracy_vs_threshold, \
@@ -25,7 +26,7 @@ def get_best_stats(learner):
     return sorted(results, key=lambda x:x['error_rate'])[0]
 
 
-def show_results(results, key=None, show_details=True, limit=None):
+def show_results(results, key=None, show_details=True, limit=None, sort_param='error_rate'):
     if key is not None:
         results = [x for x in results if key in x[0]]
         
@@ -37,7 +38,7 @@ def show_results(results, key=None, show_details=True, limit=None):
         print(f'{title:14}  Error -- best: {np.min(err):.3f}  med: {np.median(err):.3f}   Loss -- best: {np.min(loss):.3f}  med: {np.median(loss):.3f}')
         if not show_details: return
         print('')
-    results = sorted(results, key=lambda x:x[1]['error_rate'])
+    results = sorted(results, key=lambda x:x[1][sort_param])
     
     if limit is None: limit = len(results)
     for key, stats in results[:limit]:
@@ -66,7 +67,7 @@ def _get_learner(db=None, model=None, model_dir=None, unfreeze=False, cut=None, 
 
 
 def _do_train(key, cycles, ps=None, mixup=False, unfreeze=False, cut=None, use_label_smoothing=False,
-             get_learner=None, stats_repo=None, **kwargs):
+             get_learner=None, stats_repo=None, monitor='accuracy', **kwargs):
     assert stats_repo is not None
     assert get_learner is not None
     
@@ -76,7 +77,7 @@ def _do_train(key, cycles, ps=None, mixup=False, unfreeze=False, cut=None, use_l
     if cut is not None:
         learn_args['cut'] = cut
         key = f'{key}_cut{cut}'
-    if ps is None:
+    if ps is not None:
         learn_args['ps'] = ps
         key = f'{key}_ps_{ps}'
     if use_label_smoothing:
@@ -106,7 +107,7 @@ def _do_train(key, cycles, ps=None, mixup=False, unfreeze=False, cut=None, use_l
     
     print(key)
     learn.fit_one_cycle(cycles, callbacks=[SaveModelCallback(learn, every='improvement', 
-                                                             monitor='accuracy', name='best')], **kwargs)
+                                                             monitor=monitor, name='best')], **kwargs)
     learn.recorder.plot_losses()
     plt.show()
     stats =  get_best_stats(learn)   
