@@ -116,7 +116,8 @@ def get_sampled_data(path, n_samples=100, balance_valid=True, **kwargs):
     return new_train, new_test, new_valid
 
 
-def get_xray_databunch(path, scale=1, size=None, tfms=None, cache=None, bs=64, include_test=False, **kwargs):
+def get_xray_databunch(path, scale=1, size=None, tfms=None, cache=None, bs=64, 
+                       include_test=False, double_valid=False, **kwargs):
     if tfms is None:
         tfms = default_transforms()
         
@@ -135,17 +136,23 @@ def get_xray_databunch(path, scale=1, size=None, tfms=None, cache=None, bs=64, i
         random.shuffle(new_train)
 
     ll_tr = list_to_ll(path, new_train)
-    ll_val = list_to_ll(path, new_valid)
-    ll_tst = list_to_ll(path, new_test)
-    
-    ils = ItemLists(path=path, train=ll_tr, valid=ll_val)
-    db = ils.transform(tfms, size=size).databunch(num_workers=7, bs=bs)
 
     if include_test:
+        ll_val = list_to_ll(path, new_valid)
+        ils = ItemLists(path=path, train=ll_tr, valid=ll_val)
+        db = ils.transform(tfms, size=size).databunch(num_workers=7, bs=bs).normalize(imagenet_stats)
+
+        ll_tst = list_to_ll(path, new_test)
         ils = ItemLists(path=path, train=ll_tr, valid=ll_tst)
-        db_tst = ils.transform(tfms, size=size).databunch(num_workers=7, bs=bs)
+        db_tst = ils.transform(tfms, size=size).databunch(num_workers=7, bs=bs).normalize(imagenet_stats)
         return db, db_tst
-    else: 
+    else:
+        if double_valid:
+            ll_val = list_to_ll(path, new_valid+new_test)
+        else: 
+            ll_val = list_to_ll(path, new_valid)
+        ils = ItemLists(path=path, train=ll_tr, valid=ll_val)
+        db = ils.transform(tfms, size=size).databunch(num_workers=7, bs=bs).normalize(imagenet_stats)
         return db
 
     

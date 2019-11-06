@@ -9,6 +9,22 @@ import scipy
 import itertools
 
 
+def model_cutter(model, select=[]):
+    cut = select[0]
+    ll = list(model.children())
+    if len(select) == 1:
+        if cut == 0 and isinstance(ll[0], torch.nn.modules.container.Sequential):
+            return ll[0]
+        else:
+            return nn.Sequential(*ll[:cut+1])
+    else:
+        if cut == 0:
+            return model_cutter(ll[0], select=select[1:])
+        else:
+            new_ll = ll[:cut] +  [model_cutter(ll[cut], select=select[1:])]
+            return nn.Sequential(*new_ll)
+
+
 def silent_validate(model:nn.Module, dl:DataLoader, loss_func:OptLossFunc=None, cb_handler:Optional[CallbackHandler]=None,
              average=True, n_batch:Optional[int]=None)->Iterator[Tuple[Union[Tensor,int],...]]:
     """Calculate `loss_func` of `model` on `dl` in evaluation mode.  
