@@ -81,8 +81,12 @@ def _do_train(key, cycles, ps=None, mixup=False, unfreeze=False, cut=None, use_l
         learn_args['ps'] = ps
         key = f'{key}_ps_{ps}'
     if use_label_smoothing:
-        learn_args['loss_func'] = LabelSmoothingCrossEntropy()
-        key = f'{key}_ls'
+        if isinstance(mixup, float):
+            learn_args['loss_func'] = LabelSmoothingCrossEntropy(use_label_smoothing)
+            key = f'{key}_ls{use_label_smoothing}'
+        else:
+            learn_args['loss_func'] = LabelSmoothingCrossEntropy()
+            key = f'{key}_ls'
     learn = get_learner(**learn_args)
 
     # if ps is None:
